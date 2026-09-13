@@ -57,3 +57,10 @@ Next.js 16 (App Router) · TypeScript · Tailwind CSS · `lucide-react` · Turso
 - `lib/queries.ts` — shared Drizzle queries used by pages and API routes
 - `middleware.ts` — protects `/admin/**` and `/dashboard/**` by role
 - `scripts/seed.ts` — seed script (`npm run db:seed`)
+- `infra/` — Terraform for the AWS deployment (ECS Fargate, ALB, CloudFront, etc.) — see `infra/README.md`
+- `.github/workflows/` — CI/CD (Terraform plan/apply, Docker build + ECS deploy)
+- `docs/AWS_SERVICES.md` — every AWS service used and why
+
+## Deploying to AWS
+
+The app runs on ECS Fargate behind CloudFront, provisioned by Terraform and deployed via GitHub Actions. See `infra/README.md` for the one-time setup and `docs/AWS_SERVICES.md` for the full list of services and scalability notes.

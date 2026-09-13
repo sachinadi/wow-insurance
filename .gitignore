@@ -37,9 +37,24 @@ yarn-error.log*
 # python venv (unrelated to this app)
 .venv/
 
+# local tooling state (not part of the app)
+.claude/
+*.log
+
 # vercel
 .vercel
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
