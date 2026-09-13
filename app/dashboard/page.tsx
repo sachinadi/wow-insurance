@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ShieldCheck, ClipboardList } from "lucide-react";
 import { getSession } from "@/lib/auth";
 import { getUserPolicies, getUserClaims } from "@/lib/queries";
 import { formatCurrency, statusBadgeClass, formatStatusLabel } from "@/lib/format";
@@ -29,16 +30,22 @@ export default async function UserDashboardPage() {
         {policies.map((policy) => (
           <div
             key={policy.id}
-            className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+            className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:shadow-md"
           >
+            <div className="brand-gradient absolute -right-8 -top-8 h-28 w-28 rounded-full opacity-10" />
             <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs font-medium uppercase text-slate-400">
-                  Policy Number
-                </p>
-                <p className="text-lg font-bold text-indigo-700">
-                  {policy.policyNumber}
-                </p>
+              <div className="flex items-start gap-3">
+                <div className="brand-gradient inline-flex rounded-xl p-2.5 text-white">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-xs font-medium uppercase text-slate-400">
+                    Policy Number
+                  </p>
+                  <p className="text-lg font-bold text-slate-900">
+                    {policy.policyNumber}
+                  </p>
+                </div>
               </div>
               <span className={statusBadgeClass(policy.status)}>
                 {formatStatusLabel(policy.status)}
@@ -73,9 +80,10 @@ export default async function UserDashboardPage() {
         ))}
       </div>
 
-      <div className="mt-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-900">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+            <ClipboardList className="h-5 w-5 text-indigo-600" />
             Recent Claims
           </h2>
           <Link href="/dashboard/claims" className="text-sm text-indigo-600 hover:underline">

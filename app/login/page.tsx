@@ -6,7 +6,7 @@ import Link from "next/link";
 import AuthCard from "@/components/AuthCard";
 import { inputClass, labelClass, primaryButtonClass, linkClass } from "@/lib/ui";
 
-export default function UserLoginPage() {
+export default function LoginPage() {
   const router = useRouter();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -18,7 +18,7 @@ export default function UserLoginPage() {
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/login/user", {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ identifier, password }),
@@ -28,7 +28,7 @@ export default function UserLoginPage() {
         setError(data.error ?? "Login failed");
         return;
       }
-      router.push("/dashboard");
+      router.push(data.role === "admin" ? "/admin/dashboard" : "/dashboard");
       router.refresh();
     } finally {
       setLoading(false);
@@ -37,8 +37,8 @@ export default function UserLoginPage() {
 
   return (
     <AuthCard
-      title="User Login"
-      subtitle="Sign in with your email address or mobile number."
+      title="Welcome back"
+      subtitle="Sign in with your email or mobile number. We'll take you to the right place."
       footer={
         <>
           New here?{" "}
@@ -54,6 +54,7 @@ export default function UserLoginPage() {
           <input
             type="text"
             required
+            autoFocus
             className={inputClass}
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}

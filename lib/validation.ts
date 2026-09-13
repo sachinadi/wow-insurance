@@ -2,12 +2,7 @@ import { z } from "zod";
 
 const mobileRegex = /^[0-9]{7,15}$/;
 
-export const adminLoginSchema = z.object({
-  email: z.string().email("Enter a valid email address"),
-  password: z.string().min(1, "Password is required"),
-});
-
-export const userLoginSchema = z.object({
+export const loginSchema = z.object({
   identifier: z.string().min(3, "Enter your email or mobile number"),
   password: z.string().min(1, "Password is required"),
 });

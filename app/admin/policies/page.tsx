@@ -9,7 +9,7 @@ export default async function AdminPoliciesPage() {
       <h1 className="text-2xl font-semibold text-slate-900">Policy Details</h1>
       <p className="mt-1 text-slate-500">All policies across every customer.</p>
 
-      <div className="mt-6 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="mt-6 overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
         <table className="min-w-full divide-y divide-slate-200 text-sm">
           <thead className="bg-slate-50 text-left text-xs font-semibold uppercase text-slate-500">
             <tr>

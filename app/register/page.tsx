@@ -51,7 +51,7 @@ export default function RegisterPage() {
       footer={
         <>
           Already have an account?{" "}
-          <Link href="/login/user" className={linkClass}>
+          <Link href="/login" className={linkClass}>
             Sign in
           </Link>
         </>

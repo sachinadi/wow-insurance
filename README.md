@@ -1,17 +1,19 @@
 # WOW Insurance
 
-A Next.js (App Router, TypeScript) insurance web app with two login roles (Admin and Enduser), a Turso (libSQL/SQLite) database via Drizzle ORM, and role-based dashboards.
+A Next.js (App Router, TypeScript) insurance web app with a single login that routes Admin and Enduser accounts to their own dashboard, a Turso (libSQL/SQLite) database via Drizzle ORM, and an AI chat assistant on both dashboards.
 
 ## Features
 
-- **Admin login** (email + password) — end-to-end view of all policies, claim history, and insurance products.
-- **Enduser login** (email or mobile number + password) — view your policy number, insurance amount, claim history, and FAQs.
+- **One login** (email or mobile number + password) — admins land on the admin dashboard, customers land on their own dashboard, based on the account's role.
+- **Admin view** — end-to-end view of all policies, claim history, and insurance products.
+- **Enduser view** — your policy number, insurance amount, claim history, and FAQs.
+- **AI assistant** (Claude Sonnet 5) on both dashboards — answers questions using the signed-in account's own data and gives recommendations (coverage suggestions for customers, portfolio insights for admins).
 - **New User Registration** for endusers.
 - **Forgot Username** / **Forgot Password** flows (simulated in this draft: the result is shown on-screen instead of being emailed/texted, so there's no dependency on a third-party email/SMS provider yet).
 
 ## Stack
 
-Next.js 16 (App Router) · TypeScript · Tailwind CSS · Turso (libSQL) · Drizzle ORM · `jose` (JWT) · `bcryptjs` · `zod`.
+Next.js 16 (App Router) · TypeScript · Tailwind CSS · `lucide-react` · Turso (libSQL) · Drizzle ORM · `jose` (JWT) · `bcryptjs` · `zod` · `@anthropic-ai/sdk`.
 
 ## Setup
 
@@ -24,6 +26,7 @@ Next.js 16 (App Router) · TypeScript · Tailwind CSS · Turso (libSQL) · Drizz
    TURSO_DATABASE_URL=...
    TURSO_AUTH_TOKEN=...
    JWT_SECRET=...   # any long random string
+   ANTHROPIC_API_KEY=... # optional — powers the AI assistant; leave blank to disable it
    ```
 3. Push the schema to your database:
    ```bash

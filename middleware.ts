@@ -28,11 +28,11 @@ export async function middleware(req: NextRequest) {
   }
 
   if (isAdminRoute && role !== "admin") {
-    return NextResponse.redirect(new URL("/login/admin", req.url));
+    return NextResponse.redirect(new URL("/login", req.url));
   }
 
   if (isUserRoute && role !== "enduser") {
-    return NextResponse.redirect(new URL("/login/user", req.url));
+    return NextResponse.redirect(new URL("/login", req.url));
   }
 
   return NextResponse.next();
