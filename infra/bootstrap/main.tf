@@ -110,7 +110,15 @@ data "aws_iam_policy_document" "github_trust" {
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repo}:*"]
+      # GitHub's newer "stable subject claims" appends immutable numeric IDs
+      # to the owner/repo names (e.g. "repo:owner@123/repo@456:ref:...")
+      # instead of the plain "repo:owner/repo:ref:..." documented format.
+      # Match both so this keeps working regardless of which one a given
+      # repo/org sends.
+      values = [
+        "repo:${var.github_repo}:*",
+        "repo:${split("/", var.github_repo)[0]}@*/${split("/", var.github_repo)[1]}@*:*",
+      ]
     }
   }
 }
