@@ -1,0 +1,422 @@
+<title>WOW Insurance AWS Architecture</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg: #F2F5FA;
+    --panel: #FFFFFF;
+    --ink: #1A2332;
+    --ink-soft: #495566;
+    --line: #C7D0DE;
+    --line-strong: #8C99AD;
+    --accent: #FF9900;
+    --compute: #ED7100;
+    --network: #8C4FFF;
+    --storage: #7AA116;
+    --database: #3B48CC;
+    --security: #DD344C;
+    --mgmt: #E7157B;
+    --external: #3A4756;
+    --external-line: #6B7686;
+    --code-bg: #E9EEF5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161F;
+      --panel: #191F2B;
+      --ink: #E8ECF3;
+      --ink-soft: #A7B2C4;
+      --line: #3A4356;
+      --line-strong: #5B6779;
+      --external: #545F71;
+      --external-line: #8791A2;
+      --code-bg: #202838;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161F;
+    --panel: #191F2B;
+    --ink: #E8ECF3;
+    --ink-soft: #A7B2C4;
+    --line: #3A4356;
+    --line-strong: #5B6779;
+    --external: #545F71;
+    --external-line: #8791A2;
+    --code-bg: #202838;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    padding: 32px 20px 56px;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; }
+
+  header h1 {
+    font-size: 1.7rem;
+    font-weight: 700;
+    margin: 0 0 6px;
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  header p {
+    margin: 0 0 20px;
+    color: var(--ink-soft);
+    max-width: 68ch;
+    line-height: 1.55;
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 20px;
+    padding: 14px 18px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    margin-bottom: 28px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: var(--ink-soft);
+  }
+  .swatch {
+    width: 13px;
+    height: 13px;
+    border-radius: 4px;
+    flex: none;
+  }
+  .swatch.outline {
+    background: none;
+    border: 2px solid var(--external-line);
+  }
+
+  figure {
+    margin: 0 0 40px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 22px 22px 18px;
+  }
+  figure h2 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 0 0 4px;
+  }
+  .fig-sub {
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    margin: 0 0 16px;
+  }
+  .svg-scroll {
+    overflow-x: auto;
+    border-radius: 8px;
+  }
+  svg { display: block; max-width: 100%; height: auto; }
+  svg text { fill: var(--ink); font-family: "IBM Plex Sans", system-ui, sans-serif; }
+  svg .mono { font-family: "IBM Plex Mono", monospace; }
+  svg .icon-label { fill: #fff; font-weight: 600; }
+  svg .boundary-label { fill: var(--ink-soft); font-weight: 500; }
+  svg .arrow-label { fill: var(--ink-soft); }
+  svg .arrow-label-strong { fill: var(--ink); font-weight: 500; }
+
+  figcaption {
+    margin-top: 14px;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    line-height: 1.5;
+    border-top: 1px solid var(--line);
+    padding-top: 12px;
+  }
+
+  code {
+    font-family: "IBM Plex Mono", monospace;
+    background: var(--code-bg);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>WOW Insurance — AWS Architecture &amp; Deployment Workflow</h1>
+    <p>How the app runs on AWS (ECS Fargate behind CloudFront and an ALB, inside a dedicated VPC) and how a
+    change gets there (GitHub Actions → ECR → ECS). Provisioned entirely by the Terraform in <code>infra/</code>.</p>
+  </header>
+
+  <div class="legend">
+    <div class="legend-item"><span class="swatch" style="background:var(--network)"></span>Networking &amp; Delivery</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--compute)"></span>Compute &amp; Containers</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--security)"></span>Security &amp; Identity</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--mgmt)"></span>Management &amp; Governance</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--storage)"></span>Storage</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--database)"></span>Database</div>
+    <div class="legend-item"><span class="swatch outline"></span>Outside AWS</div>
+  </div>
+
+  <figure>
+    <h2>Architecture</h2>
+    <p class="fig-sub">Resource topology — one AWS account, one VPC across two Availability Zones.</p>
+    <div class="svg-scroll">
+      <svg viewBox="0 0 1200 660" role="img" aria-label="Architecture diagram: a user reaches CloudFront, which forwards to an Application Load Balancer inside a VPC, which routes to an ECS Fargate service running 2 to 6 tasks across two Availability Zones. The service pulls its image from ECR, reads secrets from Secrets Manager, writes logs to CloudWatch, and reaches Turso and the Anthropic API over the internet via a NAT Gateway. GitHub Actions, outside the AWS account, pushes images to ECR and updates the ECS service, and applies Terraform changes against state stored in S3 and locked in DynamoDB.">
+
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor"></path>
+          </marker>
+          <marker id="arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"></path>
+          </marker>
+        </defs>
+
+        <!-- User -->
+        <circle cx="50" cy="66" r="15" fill="none" stroke="var(--external-line)" stroke-width="2"></circle>
+        <path d="M32,110 q18,-24 36,0" fill="none" stroke="var(--external-line)" stroke-width="2"></path>
+        <text x="50" y="132" text-anchor="middle" font-size="12" class="arrow-label">User</text>
+
+        <!-- User -> CloudFront -->
+        <line x1="76" y1="68" x2="150" y2="68" stroke="var(--accent)" stroke-width="2.5" marker-end="url(#arrow-accent)"></line>
+        <text x="113" y="58" text-anchor="middle" font-size="11" class="arrow-label-strong">HTTPS</text>
+
+        <!-- CloudFront -->
+        <rect x="152" y="40" width="120" height="56" rx="10" fill="var(--network)"></rect>
+        <text x="212" y="63" text-anchor="middle" font-size="13" class="icon-label">CF</text>
+        <text x="212" y="80" text-anchor="middle" font-size="10.5" class="icon-label">CloudFront</text>
+        <text x="212" y="112" text-anchor="middle" font-size="10" class="arrow-label">edge cache · TLS</text>
+
+        <!-- AWS Account boundary -->
+        <rect x="330" y="14" width="850" height="502" rx="12" fill="none" stroke="var(--line-strong)" stroke-width="1.5" stroke-dasharray="3 4"></rect>
+        <text x="348" y="33" font-size="11.5" class="boundary-label">AWS ACCOUNT — us-east-1</text>
+
+        <!-- CloudFront -> ALB -->
+        <line x1="272" y1="68" x2="352" y2="68" stroke="currentColor" stroke-width="2" marker-end="url(#arrow)" class="arrow-label"></line>
+        <text x="312" y="58" text-anchor="middle" font-size="10" class="arrow-label">HTTP :80 (origin)</text>
+
+        <!-- VPC boundary -->
+        <rect x="352" y="50" width="430" height="420" rx="10" fill="none" stroke="var(--network)" stroke-width="1.5" stroke-dasharray="3 4"></rect>
+        <text x="366" y="68" font-size="11" class="boundary-label" fill="var(--network)">VPC · 10.20.0.0/16</text>
+
+        <!-- Public subnets boundary -->
+        <rect x="368" y="84" width="398" height="110" rx="8" fill="none" stroke="var(--line)" stroke-width="1.3" stroke-dasharray="2 3"></rect>
+        <text x="380" y="100" font-size="10" class="boundary-label">Public subnets · 2 AZs</text>
+
+        <rect x="384" y="110" width="120" height="56" rx="9" fill="var(--network)"></rect>
+        <text x="444" y="134" text-anchor="middle" font-size="12" class="icon-label">ALB</text>
+        <text x="444" y="150" text-anchor="middle" font-size="9.5" class="icon-label">Load Balancer</text>
+
+        <rect x="620" y="110" width="120" height="56" rx="9" fill="var(--network)"></rect>
+        <text x="680" y="134" text-anchor="middle" font-size="12" class="icon-label">NAT</text>
+        <text x="680" y="150" text-anchor="middle" font-size="9.5" class="icon-label">NAT Gateway</text>
+
+        <!-- Private subnets boundary -->
+        <rect x="368" y="210" width="398" height="140" rx="8" fill="none" stroke="var(--line)" stroke-width="1.3" stroke-dasharray="2 3"></rect>
+        <text x="754" y="226" text-anchor="end" font-size="10" class="boundary-label">Private subnets · 2 AZs</text>
+
+        <!-- ALB -> ECS -->
+        <line x1="444" y1="166" x2="444" y2="242" stroke="currentColor" stroke-width="2" marker-end="url(#arrow)" class="arrow-label"></line>
+        <text x="452" y="206" font-size="10" class="arrow-label">forwards :3000</text>
+
+        <rect x="384" y="242" width="360" height="88" rx="9" fill="var(--compute)"></rect>
+        <text x="564" y="266" text-anchor="middle" font-size="13" class="icon-label">ECS · Fargate Service</text>
+        <text x="564" y="284" text-anchor="middle" font-size="10.5" class="icon-label">2–6 tasks · next start · port 3000</text>
+        <text x="564" y="301" text-anchor="middle" font-size="10" class="icon-label">spread across 2 Availability Zones</text>
+
+        <!-- Auto scaling badge (sits below the ECS box, not overlapping it) -->
+        <line x1="700" y1="332" x2="700" y2="340" stroke="var(--compute)" stroke-width="1.5" marker-end="url(#arrow)" style="color:var(--compute)"></line>
+        <rect x="647" y="340" width="106" height="26" rx="13" fill="var(--panel)" stroke="var(--compute)" stroke-width="1.5"></rect>
+        <text x="700" y="357" text-anchor="middle" font-size="9.5" fill="var(--compute)" font-weight="600">Auto Scaling</text>
+        <text x="700" y="380" text-anchor="middle" font-size="9.5" class="arrow-label">target: CPU 60% / Mem 70%</text>
+
+        <!-- NAT -> private subnet egress path (decorative) -->
+        <line x1="680" y1="166" x2="680" y2="210" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 3" class="arrow-label"></line>
+
+        <!-- Right column: supporting services -->
+        <rect x="812" y="84" width="150" height="56" rx="9" fill="var(--compute)"></rect>
+        <text x="887" y="108" text-anchor="middle" font-size="12" class="icon-label">ECR</text>
+        <text x="887" y="124" text-anchor="middle" font-size="9.5" class="icon-label">Container Registry</text>
+
+        <rect x="812" y="154" width="150" height="56" rx="9" fill="var(--security)"></rect>
+        <text x="887" y="178" text-anchor="middle" font-size="12" class="icon-label">Secrets Manager</text>
+        <text x="887" y="194" text-anchor="middle" font-size="9.5" class="icon-label">JWT · API keys · Turso creds</text>
+
+        <rect x="812" y="224" width="150" height="56" rx="9" fill="var(--security)"></rect>
+        <text x="887" y="248" text-anchor="middle" font-size="12" class="icon-label">IAM</text>
+        <text x="887" y="264" text-anchor="middle" font-size="9.5" class="icon-label">Task roles · GitHub OIDC</text>
+
+        <rect x="812" y="294" width="150" height="56" rx="9" fill="var(--mgmt)"></rect>
+        <text x="887" y="318" text-anchor="middle" font-size="12" class="icon-label">CloudWatch</text>
+        <text x="887" y="334" text-anchor="middle" font-size="9.5" class="icon-label">Logs · Container Insights</text>
+
+        <!-- SecretsManager -> ECS (routed through the margin right of the VPC box) -->
+        <path d="M812,182 H780 V260 H744" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#arrow)" class="arrow-label"></path>
+        <text x="796" y="222" text-anchor="middle" font-size="8.5" class="arrow-label">GetSecretValue</text>
+
+        <!-- ECR -> ECS -->
+        <path d="M812,112 H770 V288 H744" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#arrow)" class="arrow-label"></path>
+        <text x="796" y="102" text-anchor="middle" font-size="8.5" class="arrow-label">pull image</text>
+
+        <!-- ECS -> CloudWatch -->
+        <path d="M744,316 H812" fill="none" stroke="currentColor" stroke-width="1.6" marker-end="url(#arrow)" class="arrow-label"></path>
+        <text x="778" y="308" text-anchor="middle" font-size="8.5" class="arrow-label">logs + metrics</text>
+
+        <!-- Terraform state cluster -->
+        <rect x="812" y="392" width="360" height="96" rx="9" fill="none" stroke="var(--line-strong)" stroke-width="1.3" stroke-dasharray="2 3"></rect>
+        <text x="824" y="408" font-size="10" class="boundary-label">Terraform remote state (bootstrap)</text>
+
+        <rect x="826" y="418" width="150" height="54" rx="8" fill="var(--storage)"></rect>
+        <text x="901" y="440" text-anchor="middle" font-size="12" class="icon-label">S3</text>
+        <text x="901" y="455" text-anchor="middle" font-size="9.5" class="icon-label">tfstate (versioned)</text>
+
+        <rect x="1006" y="418" width="150" height="54" rx="8" fill="var(--database)"></rect>
+        <text x="1081" y="440" text-anchor="middle" font-size="12" class="icon-label">DynamoDB</text>
+        <text x="1081" y="455" text-anchor="middle" font-size="9.5" class="icon-label">state lock</text>
+
+        <!-- ECS -> external (Turso / Anthropic) via NAT -->
+        <line x1="500" y1="330" x2="500" y2="536" stroke="currentColor" stroke-width="2" class="arrow-label"></line>
+        <text x="510" y="450" font-size="10" class="arrow-label">egress via NAT Gateway</text>
+        <path d="M500,536 L442,558" fill="none" stroke="currentColor" stroke-width="2" marker-end="url(#arrow)" class="arrow-label"></path>
+        <path d="M500,536 L652,558" fill="none" stroke="currentColor" stroke-width="2" marker-end="url(#arrow)" class="arrow-label"></path>
+
+        <!-- Outside AWS -->
+        <text x="352" y="544" font-size="11.5" class="boundary-label">OUTSIDE AWS</text>
+
+        <rect x="352" y="558" width="180" height="66" rx="9" fill="none" stroke="var(--external-line)" stroke-width="2"></rect>
+        <text x="442" y="586" text-anchor="middle" font-size="12" fill="var(--ink)" font-weight="600">Turso</text>
+        <text x="442" y="603" text-anchor="middle" font-size="9.5" class="arrow-label">libSQL database</text>
+
+        <rect x="562" y="558" width="180" height="66" rx="9" fill="none" stroke="var(--external-line)" stroke-width="2"></rect>
+        <text x="652" y="586" text-anchor="middle" font-size="12" fill="var(--ink)" font-weight="600">Anthropic API</text>
+        <text x="652" y="603" text-anchor="middle" font-size="9.5" class="arrow-label">Claude Sonnet 5</text>
+
+        <rect x="812" y="558" width="240" height="66" rx="9" fill="none" stroke="var(--external-line)" stroke-width="2"></rect>
+        <text x="932" y="580" text-anchor="middle" font-size="12" fill="var(--ink)" font-weight="600">GitHub Repo + Actions</text>
+        <text x="932" y="596" text-anchor="middle" font-size="9" class="arrow-label">terraform.yml · deploy.yml</text>
+        <text x="932" y="610" text-anchor="middle" font-size="9" class="arrow-label">assumes AWS role via IAM OIDC</text>
+
+        <!-- GitHub -> ECR (build + push + deploy), routed through the S3/DynamoDB gap -->
+        <path d="M990,558 V64 H900 V84" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#arrow)" class="arrow-label"></path>
+        <text x="945" y="54" text-anchor="middle" font-size="8.5" class="arrow-label">build → push → update-service (deploy.yml)</text>
+
+        <!-- GitHub -> Terraform state -->
+        <line x1="900" y1="558" x2="900" y2="488" stroke="currentColor" stroke-width="1.6" marker-end="url(#arrow)" class="arrow-label"></line>
+        <text x="910" y="520" font-size="8.5" class="arrow-label">terraform apply</text>
+
+      </svg>
+    </div>
+    <figcaption>ECS Fargate runs the containerized Next.js app behind an ALB, fronted by CloudFront for HTTPS. Tasks pull their image from ECR, read secrets at launch from Secrets Manager, and ship logs to CloudWatch — all inside a private subnet reachable only through the ALB. Outbound calls to Turso and Anthropic leave through the NAT Gateway. GitHub Actions (outside AWS) authenticates via an IAM OIDC role — no stored AWS keys — to push images, roll the ECS service, and apply Terraform against state locked in DynamoDB and stored in S3.</figcaption>
+  </figure>
+
+  <figure>
+    <h2>End-to-end workflow</h2>
+    <p class="fig-sub">Two paths through the same system: what happens on a user request, and what happens on a deploy.</p>
+    <div class="svg-scroll">
+      <svg viewBox="0 0 1200 380" role="img" aria-label="Two workflows. Request path: a user's browser sends HTTPS to CloudFront, which forwards to the ALB, which routes to an ECS task; the task calls Turso and Anthropic as needed and streams a response back. Deploy path: a developer pushes to master, GitHub Actions builds a Docker image, pushes it to ECR tagged with the commit SHA, renders a new ECS task definition, calls ecs update-service, and the ALB health-checks the new tasks in before draining the old ones.">
+        <defs>
+          <marker id="arrow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor"></path>
+          </marker>
+        </defs>
+
+        <!-- Lane labels -->
+        <text x="10" y="40" font-size="12" font-weight="600" class="boundary-label">A · REQUEST PATH</text>
+        <text x="10" y="230" font-size="12" font-weight="600" class="boundary-label">B · DEPLOY PATH</text>
+        <line x1="0" y1="190" x2="1200" y2="190" stroke="var(--line)" stroke-width="1"></line>
+
+        <!-- Lane A nodes -->
+        <g font-size="10.5">
+          <rect x="10" y="56" width="146" height="66" rx="9" fill="none" stroke="var(--external-line)" stroke-width="2"></rect>
+          <text x="83" y="82" text-anchor="middle" font-weight="600" class="mono" fill="var(--ink)">1</text>
+          <text x="83" y="100" text-anchor="middle" fill="var(--ink)">Browser sends</text>
+          <text x="83" y="113" text-anchor="middle" fill="var(--ink)">HTTPS request</text>
+
+          <line x1="156" y1="89" x2="200" y2="89" stroke="currentColor" stroke-width="2" marker-end="url(#arrow2)" class="arrow-label"></line>
+
+          <rect x="200" y="56" width="146" height="66" rx="9" fill="var(--network)"></rect>
+          <text x="273" y="82" text-anchor="middle" font-weight="700" class="icon-label mono">2</text>
+          <text x="273" y="100" text-anchor="middle" class="icon-label">CloudFront</text>
+          <text x="273" y="113" text-anchor="middle" class="icon-label">terminates TLS</text>
+
+          <line x1="346" y1="89" x2="390" y2="89" stroke="currentColor" stroke-width="2" marker-end="url(#arrow2)" class="arrow-label"></line>
+
+          <rect x="390" y="56" width="146" height="66" rx="9" fill="var(--network)"></rect>
+          <text x="463" y="82" text-anchor="middle" font-weight="700" class="icon-label mono">3</text>
+          <text x="463" y="100" text-anchor="middle" class="icon-label">ALB routes to a</text>
+          <text x="463" y="113" text-anchor="middle" class="icon-label">healthy task</text>
+
+          <line x1="536" y1="89" x2="580" y2="89" stroke="currentColor" stroke-width="2" marker-end="url(#arrow2)" class="arrow-label"></line>
+
+          <rect x="580" y="56" width="146" height="66" rx="9" fill="var(--compute)"></rect>
+          <text x="653" y="78" text-anchor="middle" font-weight="700" class="icon-label mono">4</text>
+          <text x="653" y="94" text-anchor="middle" class="icon-label">ECS task runs</text>
+          <text x="653" y="107" text-anchor="middle" class="icon-label">Next.js SSR /</text>
+          <text x="653" y="119" text-anchor="middle" class="icon-label">API route</text>
+
+          <line x1="726" y1="89" x2="770" y2="89" stroke="currentColor" stroke-width="2" marker-end="url(#arrow2)" class="arrow-label"></line>
+
+          <rect x="770" y="56" width="166" height="66" rx="9" fill="none" stroke="var(--external-line)" stroke-width="2"></rect>
+          <text x="853" y="78" text-anchor="middle" font-weight="600" class="mono" fill="var(--ink)">5</text>
+          <text x="853" y="95" text-anchor="middle" fill="var(--ink)">Turso query /</text>
+          <text x="853" y="109" text-anchor="middle" fill="var(--ink)">Anthropic call</text>
+          <text x="853" y="120" text-anchor="middle" fill="var(--ink-soft)" font-size="9">(as needed)</text>
+
+          <line x1="936" y1="89" x2="980" y2="89" stroke="currentColor" stroke-width="2" marker-end="url(#arrow2)" class="arrow-label"></line>
+
+          <rect x="980" y="56" width="150" height="66" rx="9" fill="none" stroke="var(--accent)" stroke-width="2"></rect>
+          <text x="1055" y="82" text-anchor="middle" font-weight="700" class="mono" fill="var(--accent)">6</text>
+          <text x="1055" y="100" text-anchor="middle" fill="var(--ink)">Response streamed</text>
+          <text x="1055" y="113" text-anchor="middle" fill="var(--ink)">back to user</text>
+        </g>
+
+        <!-- Lane B nodes -->
+        <g font-size="10.5">
+          <rect x="10" y="246" width="146" height="66" rx="9" fill="none" stroke="var(--external-line)" stroke-width="2"></rect>
+          <text x="83" y="272" text-anchor="middle" font-weight="600" class="mono" fill="var(--ink)">1</text>
+          <text x="83" y="290" text-anchor="middle" fill="var(--ink)">git push</text>
+          <text x="83" y="303" text-anchor="middle" fill="var(--ink)">to master</text>
+
+          <line x1="156" y1="279" x2="200" y2="279" stroke="currentColor" stroke-width="2" marker-end="url(#arrow2)" class="arrow-label"></line>
+
+          <rect x="200" y="246" width="146" height="66" rx="9" fill="none" stroke="var(--external-line)" stroke-width="2"></rect>
+          <text x="273" y="268" text-anchor="middle" font-weight="600" class="mono" fill="var(--ink)">2</text>
+          <text x="273" y="286" text-anchor="middle" fill="var(--ink)">GitHub Actions</text>
+          <text x="273" y="299" text-anchor="middle" fill="var(--ink)">builds image</text>
+
+          <line x1="346" y1="279" x2="390" y2="279" stroke="currentColor" stroke-width="2" marker-end="url(#arrow2)" class="arrow-label"></line>
+
+          <rect x="390" y="246" width="146" height="66" rx="9" fill="var(--compute)"></rect>
+          <text x="463" y="268" text-anchor="middle" font-weight="700" class="icon-label mono">3</text>
+          <text x="463" y="286" text-anchor="middle" class="icon-label">Push to ECR</text>
+          <text x="463" y="299" text-anchor="middle" class="icon-label">tag = git SHA</text>
+
+          <line x1="536" y1="279" x2="580" y2="279" stroke="currentColor" stroke-width="2" marker-end="url(#arrow2)" class="arrow-label"></line>
+
+          <rect x="580" y="246" width="146" height="66" rx="9" fill="var(--compute)"></rect>
+          <text x="653" y="268" text-anchor="middle" font-weight="700" class="icon-label mono">4</text>
+          <text x="653" y="286" text-anchor="middle" class="icon-label">Render new task</text>
+          <text x="653" y="299" text-anchor="middle" class="icon-label">definition revision</text>
+
+          <line x1="726" y1="279" x2="770" y2="279" stroke="currentColor" stroke-width="2" marker-end="url(#arrow2)" class="arrow-label"></line>
+
+          <rect x="770" y="246" width="166" height="66" rx="9" fill="var(--compute)"></rect>
+          <text x="853" y="268" text-anchor="middle" font-weight="700" class="icon-label mono">5</text>
+          <text x="853" y="286" text-anchor="middle" class="icon-label">ecs update-service</text>
+          <text x="853" y="299" text-anchor="middle" class="icon-label">--force-new-deployment</text>
+
+          <line x1="936" y1="279" x2="980" y2="279" stroke="currentColor" stroke-width="2" marker-end="url(#arrow2)" class="arrow-label"></line>
+
+          <rect x="980" y="246" width="150" height="66" rx="9" fill="none" stroke="var(--accent)" stroke-width="2"></rect>
+          <text x="1055" y="266" text-anchor="middle" font-weight="700" class="mono" fill="var(--accent)">6</text>
+          <text x="1055" y="284" text-anchor="middle" fill="var(--ink)">ALB health-checks in,</text>
+          <text x="1055" y="297" text-anchor="middle" fill="var(--ink)">drains old tasks</text>
+        </g>
+      </svg>
+    </div>
+    <figcaption>Zero-downtime by construction: the ALB only sends traffic to tasks that pass their health check, so the old task set keeps serving requests until the new one is confirmed healthy. Terraform never sees this path — it owns the surrounding infrastructure, not which image tag is currently deployed (see the <code>ignore_changes</code> note in <code>infra/modules/ecs/main.tf</code>).</figcaption>
+  </figure>
+</div>
